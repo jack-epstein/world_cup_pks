@@ -1,10 +1,13 @@
-from enum import Enum
 import kagglehub
 import numpy as np
 import pandas as pd
 
+from data import team
+
 # Download latest version
 PATH = kagglehub.dataset_download("luigibizarro/world-cup-penalty-shootouts-1982-2022")
+
+kt = team.KickingTeam
 
 
 def _make_games_dataframe(df: pd.DataFrame) -> pd.DataFrame:
@@ -34,17 +37,12 @@ def _make_games_dataframe(df: pd.DataFrame) -> pd.DataFrame:
     return df_games
 
 
-class KickingTeam(Enum):
-    team_1 = "team_1"
-    team_2 = "team_2"
-
-
 class PKShootout:
     def __init__(self):
         df_all = pd.read_csv(f"{PATH}/WorldCupShootouts.csv")
         self.df_kicks = df_all[df_all.Goal.notna()].copy()
         self.df_kicks["team_order"] = self.df_kicks.Penalty_Number.apply(
-            lambda x: KickingTeam.team_1.value if int(x) % 2 == 1 else KickingTeam.team_2.value
+            lambda x: kt.team_1.value if int(x) % 2 == 1 else kt.team_2.value
         )
         self.df_games = _make_games_dataframe(self.df_kicks)
         del df_all
@@ -52,20 +50,20 @@ class PKShootout:
         self.n_kicks_attempted = 0
         self.shootout_is_over = False
         self.shootout_team_progress = {
-            KickingTeam.team_1.value: {
+            kt.team_1.value: {
                 'kicks_attempted': 0,
                 'kicks_remaining': 5,
                 'score': 0,
                 'probability': 0.5,
             },
-            KickingTeam.team_2.value: {
+            kt.team_2.value: {
                 'kicks_attempted': 0,
                 'kicks_remaining': 5,
                 'score': 0,
                 'probability': 0.5,
             },
         }
-        self.kicking_team = KickingTeam.team_1
+        self.kicking_team = kt.team_1
 
         self.shootout_progress = {
             'kick': list(range(1, 11)),
@@ -102,18 +100,18 @@ class PKShootout:
         
         # update the probability for the team not kicking
         other_team = (
-            KickingTeam.team_1 if self.kicking_team == KickingTeam.team_2 else KickingTeam.team_2
+            kt.team_1 if self.kicking_team == kt.team_2 else kt.team_2
         )
         self.shootout_team_progress[other_team.value]['probability'] = 1 - kick_team_prob
 
         # save results in the running dictionary
         self.shootout_progress['team_1_score'].append(
-            self.shootout_team_progress[KickingTeam.team_1.value]['score']
+            self.shootout_team_progress[kt.team_1.value]['score']
         )
         self.shootout_progress['team_2_score'].append(
-            self.shootout_team_progress[KickingTeam.team_2.value]['score']
+            self.shootout_team_progress[kt.team_2.value]['score']
         )
-        if self.kicking_team == KickingTeam.team_1:
+        if self.kicking_team == kt.team_1:
             self.shootout_progress['team_1_probability'].append(kick_team_prob)
             self.shootout_progress['team_2_probability'].append(1 - kick_team_prob)
         else:
@@ -124,28 +122,28 @@ class PKShootout:
         self.switch_kicking_team()
 
     def switch_kicking_team(self):
-        if self.kicking_team == KickingTeam.team_1:
-            self.kicking_team = KickingTeam.team_2
+        if self.kicking_team == kt.team_1:
+            self.kicking_team = kt.team_2
         else:
-            self.kicking_team = KickingTeam.team_1
+            self.kicking_team = kt.team_1
 
     def is_shootout_over(self) -> bool:
         """Check if the team ahead has guaranteed a win."""
         # return false if the shootout is tied
         if (
-            self.shootout_team_progress[KickingTeam.team_1.value]['score'] ==
-            self.shootout_team_progress[KickingTeam.team_2.value]['score']
+            self.shootout_team_progress[kt.team_1.value]['score'] ==
+            self.shootout_team_progress[kt.team_2.value]['score']
         ):
             return False
         
         # get the score difference and determine who is losing based on this difference
         score_diff = (
-            self.shootout_team_progress[KickingTeam.team_1.value]['score'] -
-            self.shootout_team_progress[KickingTeam.team_2.value]['score']
+            self.shootout_team_progress[kt.team_1.value]['score'] -
+            self.shootout_team_progress[kt.team_2.value]['score']
         )
         score_diff_abs = abs(score_diff)
-        leading_team = KickingTeam.team_1 if score_diff > 0 else KickingTeam.team_2
-        trailing_team = KickingTeam.team_1 if score_diff < 0 else KickingTeam.team_2
+        leading_team = kt.team_1 if score_diff > 0 else kt.team_2
+        trailing_team = kt.team_1 if score_diff < 0 else kt.team_2
 
         # if the trailing team doesn't have enough kicks left, the game is over
         if self.shootout_team_progress[trailing_team.value]['kicks_remaining'] < score_diff_abs:
@@ -156,7 +154,7 @@ class PKShootout:
         return False
 
     def calc_kicking_team_probability_after_kick(
-        self, team_kicking: KickingTeam, kick_success: bool, is_shootout_over: bool = False
+        self, team_kicking: kt, kick_success: bool, is_shootout_over: bool = False
     ) -> float:
         """Calcluate the probability that the kicking team will win the shootout."""
         # if the shootout is over, the kicking team wins on a make and loses on a miss
@@ -173,15 +171,15 @@ class PKShootout:
         # if we have done 10 kicks and the shootout is tied, set to 50%
         if (
             self.n_kicks_attempted == 10 and (
-                self.shootout_team_progress[KickingTeam.team_1.value]['score'] ==
-                self.shootout_team_progress[KickingTeam.team_2.value]['score']
+                self.shootout_team_progress[kt.team_1.value]['score'] ==
+                self.shootout_team_progress[kt.team_2.value]['score']
             )
         ):
             return 0.5
         
         # get each teams score after the result of the kick
-        team_1_score = self.shootout_team_progress[KickingTeam.team_1.value]['score']
-        team_2_score = self.shootout_team_progress[KickingTeam.team_2.value]['score']
+        team_1_score = self.shootout_team_progress[kt.team_1.value]['score']
+        team_2_score = self.shootout_team_progress[kt.team_2.value]['score']
         
         # get a slimmed dataframe with possible shootout outcomes given the result of the kick
         df_status = self.get_df_from_given_score(
@@ -222,13 +220,13 @@ class PKShootout:
         # if this was the first kick, we only care about the result of the first teams kick
         if n_kicks_attempted == 1:
             kick_pivot = kick_pivot[
-                (kick_pivot[KickingTeam.team_1.value] == team_1_score)
+                (kick_pivot[kt.team_1.value] == team_1_score)
             ]
         # after kick 1, we need both teams scores
         else:
             kick_pivot = kick_pivot[
-                (kick_pivot[KickingTeam.team_1.value] == team_1_score) &
-                (kick_pivot[KickingTeam.team_2.value] == team_2_score)
+                (kick_pivot[kt.team_1.value] == team_1_score) &
+                (kick_pivot[kt.team_2.value] == team_2_score)
             ]
         
         return df_base[df_base['Game_id'].isin(kick_pivot['Game_id'])].copy()
@@ -236,22 +234,22 @@ class PKShootout:
     def reset_shootout(self):
         self.n_kicks_attempted = 0
         self.shootout_team_progress = {
-            KickingTeam.team_1.value: {
+            kt.team_1.value: {
                 'kicks_attempted': 0,
                 'kicks_remaining': 5,
                 'score': 0,
                 'probability': 0.5,
             },
-            KickingTeam.team_2.value: {
+            kt.team_2.value: {
                 'kicks_attempted': 0,
                 'kicks_remaining': 5,
                 'score': 0,
                 'probability': 0.5,
             },
         }
-        self.kicking_team = KickingTeam.team_1
+        self.kicking_team = kt.team_1
     
-    def simulate_remaining_shootout(self, team_kicking: KickingTeam, kicks_remaining: int):
+    def simulate_remaining_shootout(self, team_kicking: kt, kicks_remaining: int):
         """If we don't have empirical data, we calculate the probability of winning assuming that
         each kick has the same chance of going in"""
 

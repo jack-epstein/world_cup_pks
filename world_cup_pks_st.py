@@ -1,10 +1,13 @@
 import streamlit as st
 import pandas as pd
 
+from data import team
 import pk_shootout
 
 if 'pk' not in st.session_state:
     st.session_state.pk = pk_shootout.PKShootout()
+
+kt = team.KickingTeam
 
 st.title("Penalty Shootout Simulator")
 
@@ -28,10 +31,10 @@ st.header(f"Team Kicking: {st.session_state.pk.kicking_team.value}")
 st.write(f'Kick number {st.session_state.pk.n_kicks_attempted + 1}')
 
 team_1_score = str(
-    st.session_state.pk.shootout_team_progress[pk_shootout.KickingTeam.team_1.value]['score']
+    st.session_state.pk.shootout_team_progress[kt.team_1.value]['score']
 )
 team_2_score = str(
-    st.session_state.pk.shootout_team_progress[pk_shootout.KickingTeam.team_2.value]['score']
+    st.session_state.pk.shootout_team_progress[kt.team_2.value]['score']
 )
 # display the score
 st.header(f"Score: {team_1_score} - {team_2_score}")
@@ -42,13 +45,13 @@ if st.session_state.pk.shootout_is_over:
 # put the team 1 and team 2 stats in their own columns
 col1, col2 = st.columns(2)
 with col1:
-    team_1_dict = st.session_state.pk.shootout_team_progress[pk_shootout.KickingTeam.team_1.value]
+    team_1_dict = st.session_state.pk.shootout_team_progress[kt.team_1.value]
     st.subheader("TEAM 1")
     st.write(f"Shot attempts: {team_1_dict['kicks_attempted']}")
     st.write(f"Goals: {team_1_dict['score']}")
     st.write(f"Win probability: {team_1_dict['probability']:.2%}")
 with col2:
-    team_2_dict = st.session_state.pk.shootout_team_progress[pk_shootout.KickingTeam.team_2.value]
+    team_2_dict = st.session_state.pk.shootout_team_progress[kt.team_2.value]
     st.subheader("TEAM 2")
     st.write(f"Shot attempts: {team_2_dict['kicks_attempted']}")
     st.write(f"Goals: {team_2_dict['score']}")
