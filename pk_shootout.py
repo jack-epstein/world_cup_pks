@@ -1,5 +1,6 @@
 from enum import Enum
 import kagglehub
+import numpy as np
 import pandas as pd
 
 # Download latest version
@@ -75,7 +76,7 @@ class PKShootout:
             'team_2_probability': [],
         }
 
-    def kick(self, kick_success: bool = True) -> None:
+    def kick(self, kick_success: bool = True):
         """A team kicks. Update the counts, scores, probabilities and check if the game is over."""
         if self.shootout_is_over or self.n_kicks_attempted >= 10:
             return None
@@ -169,6 +170,15 @@ class PKShootout:
             else:
                 return 1.0
         
+        # if we have done 10 kicks and the shootout is tied, set to 50%
+        if (
+            self.n_kicks_attempted == 10 and (
+                self.shootout_team_progress[KickingTeam.team_1.value]['score'] ==
+                self.shootout_team_progress[KickingTeam.team_2.value]['score']
+            )
+        ):
+            return 0.5
+        
         # get each teams score after the result of the kick
         team_1_score = self.shootout_team_progress[KickingTeam.team_1.value]['score']
         team_2_score = self.shootout_team_progress[KickingTeam.team_2.value]['score']
@@ -240,3 +250,20 @@ class PKShootout:
             },
         }
         self.kicking_team = KickingTeam.team_1
+    
+    def simulate_remaining_shootout(self, team_kicking: KickingTeam, kicks_remaining: int):
+        """If we don't have empirical data, we calculate the probability of winning assuming that
+        each kick has the same chance of going in"""
+
+        single_kick_prob = self.df_kicks['Goal'].mean()
+        
+        # we need to consider the current score, the number of kicks remaining
+        # if a team is up 4-3 going into the last kick, we should assume they have a
+            # ~70% chance to make the kick
+            # ~30% chance to save if not
+            # ~50% chance if it goes past 10
+            # this is an 89.5% chance of winning
+        # in general i think i want a binomial distribution calculator
+        # as a backup plan, i could shift to 50% and do a binomial but this biases against the 2nd team as theyre less likely to score
+        return single_kick_prob
+
