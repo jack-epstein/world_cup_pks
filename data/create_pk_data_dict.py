@@ -5,8 +5,6 @@ import pandas as pd
 import team
 
 # TO DO
-# BETTER DESCRIPTIONS
-# BETTER TYPE ANNOTATIONS
 # FUNCTION TO CHECK IMPOSSIBLE SCORES
 
 # Download latest version
@@ -20,18 +18,16 @@ def get_df_from_given_score(
     n_kicks_attempted: int,
     team_1_score: int,
     team_2_score: int
-):
-    """Given a score at any point in a shootout, return the dataframe of available games.
-    
-    Filter down for only the """
+) -> pd.DataFrame:
+    """Given a score at a point in a shootout, get the dataframe of games/kicks with that score."""
     assert team_1_score + team_2_score <= n_kicks_attempted, (
         "Impossible score given number of kicks"
     )
     assert team_1_score * 2 <= n_kicks_attempted + 1, "Impossible score given number of kicks"
     assert team_2_score * 2 <= n_kicks_attempted, "Impossible score given number of kicks"
     
+    # filter the kicks dataframe to only that point in the shootout and pivot by game
     df_kicks_happened = df_base[df_base['Penalty_Number'] <= n_kicks_attempted].copy()
-
     kick_pivot = df_kicks_happened.pivot_table(
         values='Goal', index='Game_id', columns='team_order', aggfunc='sum'
     ).reset_index()
@@ -46,15 +42,19 @@ def get_df_from_given_score(
             (kick_pivot[kt.team_2.value] == team_2_score)
         ]
     
+    # return the initial dataframe based on the game id in the pivoted and filtered frame
     return df_base[df_base['Game_id'].isin(kick_pivot['Game_id'])].copy()
 
 
 def calc_kicking_team_probability_after_kick(
     df_kicks_slimmed: pd.DataFrame, df_games: pd.DataFrame,
     n_kicks_attempted: int, team_1_score: int, team_2_score: int
-):
-    """Calcluate the probability that the team that just kicked will win the shootout."""
-    # get a slimmed dataframe with possible shootout outcomes given the result of the kick
+) -> float:
+    """Calcluate the probability that the team that just kicked will win the shootout.
+    
+    Use the get_df_from_given_score to get a filtered dataframe and use those game IDs to cut down
+    the games dataframe. With the games dataframe, get the percent of time the team that kicked won
+    """
     df_status = get_df_from_given_score(
         df_base=df_kicks_slimmed,
         n_kicks_attempted=n_kicks_attempted,
@@ -62,7 +62,6 @@ def calc_kicking_team_probability_after_kick(
         team_2_score=team_2_score,
     )
 
-    # filter to the historical games that this score associates with
     df_games_slim = df_games[df_games.game.isin(df_status.Game_id)]
     team_kicking = kt.team_1.value if n_kicks_attempted % 2 == 1 else kt.team_2.value
     return (df_games_slim.winning_team == team_kicking).mean()
@@ -70,13 +69,15 @@ def calc_kicking_team_probability_after_kick(
 
 def main():
     df_all = pd.read_csv(f"{PATH}/WorldCupShootouts.csv")
+    
+    # get a dataframe of all kicks
     df_kicks = df_all[df_all.Goal.notna()].copy()
     df_kicks["team_order"] = df_kicks.Penalty_Number.apply(
         lambda x: kt.team_1.value if int(x) % 2 == 1 else kt.team_2.value
     )
 
+    # get a dataframe of all games
     games = set(df_kicks.Game_id)
-
     res = []
     for game in games:
         res_dict = {'game': game}
@@ -85,15 +86,12 @@ def main():
         # if the last kick is a goal, the team that kicked won
         if temp.iloc[-1].Goal == 1:
             res_dict['winning_team'] = temp.iloc[-1].team_order
-            res_dict['winning_country'] = temp.iloc[-1].Team
-            res_dict['losing_country'] = temp.iloc[-2].Team
         else:
             res_dict['winning_team'] = temp.iloc[-2].team_order
-            res_dict['winning_country'] = temp.iloc[-2].Team
-            res_dict['losing_country'] = temp.iloc[-1].Team
         res.append(res_dict)
     df_games = pd.DataFrame(res)
 
+    # for every possible score at any point in a shootout, get the probability of winning
     probability_dict = {}
     n_kicks_list = list(range(1, 11))
     n_goals_list = list(range(0, 6))
