@@ -158,7 +158,7 @@ class PKShootout:
     def calc_kicking_team_probability_after_kick(
         self, team_kicking: KickingTeam, kick_success: bool, is_shootout_over: bool = False
     ) -> float:
-        """Calcluate the probability that either team will win the shootout."""
+        """Calcluate the probability that the kicking team will win the shootout."""
         # if the shootout is over, the kicking team wins on a make and loses on a miss
         if is_shootout_over:
             if self.kicking_team == team_kicking and kick_success:
