@@ -67,13 +67,3 @@ st.line_chart(
     x="kick",
     y=["team_1_probability", "team_2_probability"],
 )
-
-# st.table(
-#     data=pd.DataFrame.from_dict(
-#         st.session_state.pk.shootout_progress, orient='index'
-#     ).reset_index().rename(columns={'index': 'kick', 0: 'kick_result'})
-# )
-
-# STILL NEED TO FIGURE OUT RESETS IN A CLEANER WAY
-# NEED TO HANDLE PROBABILITY GAPS
-# NEED TO BETTER "END" THE SHOOTOUTS
