@@ -98,7 +98,7 @@ class PKShootout:
 
     def is_shootout_over(
         self, n_kicks_attempted: int, team_1_score: int, team_2_score: int,
-    ): #  -> tuple[bool, bool | None]
+    ) -> tuple[bool, bool | None]:
         """Check if the team ahead has guaranteed a win.
         
         If true, also return whether the team that just kicked won"""
