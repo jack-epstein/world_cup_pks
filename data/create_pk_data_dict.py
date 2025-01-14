@@ -67,6 +67,42 @@ def calc_kicking_team_probability_after_kick(
     return (df_games_slim.winning_team == team_kicking).mean()
 
 
+def is_score_possible(
+    n_kicks_attempted: int, team_1_score: int, team_2_score: int
+):
+    # both teams scores cant be greater than attempted kicks
+    if team_1_score + team_2_score  > n_kicks_attempted:
+        return False
+    
+    # team 1 can't be 1 more than half of the total kicks
+    if team_1_score * 2 > n_kicks_attempted + 1:
+        return False
+    
+    # team 2 can't be more than half of the total kicks
+    if team_2_score * 2 > n_kicks_attempted:
+        return False
+    
+    # assuming the previous, all ties are possible
+    if team_1_score == team_2_score:
+        return True
+
+    # if we have an even number of kicks, both teams have take the same amount
+    if n_kicks_attempted % 2 == 0:
+        trailing_team_kick_remaining = 5 - n_kicks_attempted / 2
+    else:
+        # on an odd kick team 2 has an extra kick remaining
+        if team_1_score < team_2_score:
+            trailing_team_kick_remaining = 5 - (n_kicks_attempted + 1) / 2
+        else:
+            trailing_team_kick_remaining = 5 - (n_kicks_attempted - 1) / 2
+
+    # if the previous kick
+    if trailing_team_kick_remaining + 1 < abs(team_2_score - team_1_score):
+        return False
+
+    return True
+
+
 def main():
     df_all = pd.read_csv(f"{PATH}/WorldCupShootouts.csv")
     
@@ -99,11 +135,10 @@ def main():
         for n_goals_team_1 in n_goals_list:
             for n_goals_team_2 in n_goals_list:
                 win_probability = None
-                # check for logically impossible scores -- MAKE A BIGGER FUNCTION TO DO THIS!!!
-                if (
-                    (n_goals_team_1 + n_goals_team_2 <= n_kicks) &
-                    (n_goals_team_1 * 2 <= n_kicks + 1) &
-                    (n_goals_team_2 * 2 <= n_kicks)
+                if is_score_possible(
+                    n_kicks_attempted=n_kicks,
+                    team_1_score=n_goals_team_1,
+                    team_2_score=n_goals_team_2
                 ):
                     # logic for 10 kicks
                     if n_kicks == 10:
