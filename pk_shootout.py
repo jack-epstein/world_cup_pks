@@ -1,5 +1,7 @@
+import json
 import kagglehub
 import numpy as np
+from os import path
 import pandas as pd
 
 from data import team
@@ -74,6 +76,9 @@ class PKShootout:
             'team_2_probability': [],
         }
 
+        with open(path.join('data', 'probability_dict.json')) as f:
+            self.game_probability_dict = json.load(f)
+
     def kick(self, kick_success: bool = True):
         """A team kicks. Update the counts, scores, probabilities and check if the game is over."""
         if self.shootout_is_over or self.n_kicks_attempted >= 10:
@@ -91,10 +96,10 @@ class PKShootout:
         # first check if the shootout has been won
         self.shootout_is_over = self.is_shootout_over()
         # then calculate the probablity for the team ahead
-        kick_team_prob = self.calc_kicking_team_probability_after_kick(
+        kick_team_prob = self.calc_win_probability_after_kick(
             team_kicking=self.kicking_team,
             kick_success=kick_success,
-            is_shootout_over=self.shootout_is_over
+            shootout_over=self.shootout_is_over
         )
         self.shootout_team_progress[self.kicking_team.value]['probability'] = kick_team_prob
         
@@ -153,12 +158,11 @@ class PKShootout:
 
         return False
 
-    def calc_kicking_team_probability_after_kick(
-        self, team_kicking: kt, kick_success: bool, is_shootout_over: bool = False
-    ) -> float:
-        """Calcluate the probability that the kicking team will win the shootout."""
+    def calc_win_probability_after_kick(
+        self, team_kicking: team.KickingTeam, kick_success: bool, shootout_over: bool = False
+    ):
         # if the shootout is over, the kicking team wins on a make and loses on a miss
-        if is_shootout_over:
+        if shootout_over:
             if self.kicking_team == team_kicking and kick_success:
                 return 1.0
             elif self.kicking_team == team_kicking and not kick_success:
@@ -168,68 +172,26 @@ class PKShootout:
             else:
                 return 1.0
         
-        # if we have done 10 kicks and the shootout is tied, set to 50%
-        if (
-            self.n_kicks_attempted == 10 and (
-                self.shootout_team_progress[kt.team_1.value]['score'] ==
-                self.shootout_team_progress[kt.team_2.value]['score']
-            )
-        ):
-            return 0.5
-        
-        # get each teams score after the result of the kick
+         # get each teams score after the result of the kick
         team_1_score = self.shootout_team_progress[kt.team_1.value]['score']
         team_2_score = self.shootout_team_progress[kt.team_2.value]['score']
         
-        # get a slimmed dataframe with possible shootout outcomes given the result of the kick
-        df_status = self.get_df_from_given_score(
-            self.df_kicks,
-            n_kicks_attempted=self.n_kicks_attempted,
-            team_1_score=team_1_score,
-            team_2_score=team_2_score,
-        )
+        # pull the probability from the history of world cups
+        dict_key = f"{self.n_kicks_attempted}_{team_1_score}_{team_2_score}"
+        sub_dict = self.game_probability_dict[dict_key]
+        empirical_win_probability = sub_dict.get('win_probability')
 
-        # filter to the historical games that this score associates with
-        df_games_slim = self.df_games[self.df_games.game.isin(df_status.Game_id)]
-        
-        prob_kicking_team_wins = (df_games_slim.winning_team == team_kicking.value).mean()
-        if prob_kicking_team_wins >= 0.95:
-            return 0.95
-        elif prob_kicking_team_wins <= 0.05:
-            return 0.05
-        return prob_kicking_team_wins
-
-    def get_df_from_given_score(
-        self,
-        df_base: pd.DataFrame,
-        n_kicks_attempted: int,
-        team_1_score: int,
-        team_2_score: int
-    ) -> pd.DataFrame:
-        """Given a score at any point in a shootout, return the dataframe of available games"""
-        assert team_1_score + team_2_score <= n_kicks_attempted, (
-            "Impossible score given number of kicks"
-        )
-        assert team_1_score * 2 <= n_kicks_attempted + 1, "Impossible score given number of kicks"
-        assert team_2_score * 2 <= n_kicks_attempted, "Impossible score given number of kicks"
-        
-        df_kicks_happened = df_base[df_base['Penalty_Number'] <= n_kicks_attempted].copy()
-        kick_pivot = df_kicks_happened.pivot_table(
-            values='Goal', index='Game_id', columns='team_order', aggfunc='sum'
-        ).reset_index()
-        # if this was the first kick, we only care about the result of the first teams kick
-        if n_kicks_attempted == 1:
-            kick_pivot = kick_pivot[
-                (kick_pivot[kt.team_1.value] == team_1_score)
-            ]
-        # after kick 1, we need both teams scores
+        # add in uncertainty if the shootout is not officially over
+        if pd.isna(empirical_win_probability):
+            win_probability = self.simulate_win_probability()
         else:
-            kick_pivot = kick_pivot[
-                (kick_pivot[kt.team_1.value] == team_1_score) &
-                (kick_pivot[kt.team_2.value] == team_2_score)
-            ]
-        
-        return df_base[df_base['Game_id'].isin(kick_pivot['Game_id'])].copy()
+            win_probability = empirical_win_probability
+
+        if win_probability >= 0.95:
+            return 0.95
+        elif win_probability <= 0.05:
+            return 0.05
+        return win_probability
 
     def reset_shootout(self):
         self.n_kicks_attempted = 0
@@ -247,9 +209,17 @@ class PKShootout:
                 'probability': 0.5,
             },
         }
+        self.shootout_progress = {
+            'kick': list(range(1, 11)),
+            'kicks': [],
+            'team_1_score': [],
+            'team_2_score': [],
+            'team_1_probability': [],
+            'team_2_probability': [],
+        }
         self.kicking_team = kt.team_1
     
-    def simulate_remaining_shootout(self, team_kicking: kt, kicks_remaining: int):
+    def simulate_win_probability(self, team_kicking: team.KickingTeam, kicks_remaining: int):
         """If we don't have empirical data, we calculate the probability of winning assuming that
         each kick has the same chance of going in"""
 

@@ -25,6 +25,7 @@ with col2:
 if st.button('Reset Count'):
     st.session_state.pk.reset_shootout()
 
+
 st.header(f"Team Kicking: {st.session_state.pk.kicking_team.value}")
 
 # Display the number of clicks
@@ -75,5 +76,4 @@ st.line_chart(
 
 # STILL NEED TO FIGURE OUT RESETS IN A CLEANER WAY
 # NEED TO HANDLE PROBABILITY GAPS
-# ADD A PLOT - X IS KICK NUMBER AND Y IS THE AXIS
 # NEED TO BETTER "END" THE SHOOTOUTS
