@@ -5,6 +5,7 @@ import pandas as pd
 from data import team
 
 kt = team.KickingTeam
+SINGLE_KICK_PROB = 0.7
 
 
 class PKShootout:
@@ -54,7 +55,7 @@ class PKShootout:
         self.shootout_team_progress[self.kicking_team.value]['score'] += kick_success_int
         
         # first check if the shootout has been won
-        self.shootout_is_over = self.is_shootout_over(
+        self.shootout_is_over, _ = self.is_shootout_over(
             n_kicks_attempted=self.n_kicks_attempted,
             team_1_score=self.shootout_team_progress[kt.team_1.value]['score'],
             team_2_score=self.shootout_team_progress[kt.team_2.value]['score'],
@@ -124,13 +125,14 @@ class PKShootout:
         if trailing_team_shots_remaining < score_diff_abs:
             return True, self.kicking_team == leading_team
 
-        return False
+        return False, None
 
     def calc_win_probability_after_kick(
         self, team_kicking: team.KickingTeam, kick_success: bool, shootout_over: bool = False
     ) -> float:
         # if the shootout is over, the kicking team wins on a make and loses on a miss
         if shootout_over:
+            print('here 2')
             if self.kicking_team == team_kicking and kick_success:
                 return 1.0
             elif self.kicking_team == team_kicking and not kick_success:
@@ -155,7 +157,7 @@ class PKShootout:
                 n_kicks_attempted=self.n_kicks_attempted,
                 team_1_score=team_1_score,
                 team_2_score=team_2_score,
-                single_kick_prob=0.7
+                single_kick_prob=SINGLE_KICK_PROB
             )
         else:
             win_probability = empirical_win_probability
@@ -217,7 +219,8 @@ class PKShootout:
             win_prob_miss_next = self.simulate_win_probability(
                 n_kicks_attempted=n_kicks_attempted + 1,
                 team_1_score=team_1_score,
-                team_2_score=team_2_score
+                team_2_score=team_2_score,
+                single_kick_prob=SINGLE_KICK_PROB
             )
         
         # if we now have a probability on a miss, search for probabilities on a make
@@ -226,13 +229,15 @@ class PKShootout:
                 win_prob_make_next = self.simulate_win_probability(
                     n_kicks_attempted=n_kicks_attempted + 1,
                     team_1_score=team_1_score,
-                    team_2_score=team_2_score + 1
+                    team_2_score=team_2_score + 1,
+                    single_kick_prob=SINGLE_KICK_PROB
                 )
             else:
                 win_prob_make_next = self.simulate_win_probability(
                     n_kicks_attempted=n_kicks_attempted + 1,
                     team_1_score=team_1_score + 1,
-                    team_2_score=team_2_score
+                    team_2_score=team_2_score,
+                    single_kick_prob=SINGLE_KICK_PROB
                 )
 
         # if neither probability exists, need to search recursively for both
@@ -241,18 +246,21 @@ class PKShootout:
                 win_prob_make_next = self.simulate_win_probability(
                     n_kicks_attempted=n_kicks_attempted + 1,
                     team_1_score=team_1_score,
-                    team_2_score=team_2_score + 1
+                    team_2_score=team_2_score + 1,
+                    single_kick_prob=SINGLE_KICK_PROB
                 )
             else:
                 win_prob_make_next = self.simulate_win_probability(
                     n_kicks_attempted=n_kicks_attempted + 1,
                     team_1_score=team_1_score + 1,
-                    team_2_score=team_2_score
+                    team_2_score=team_2_score,
+                    single_kick_prob=SINGLE_KICK_PROB
                 )
             win_prob_miss_next = self.simulate_win_probability(
                 n_kicks_attempted=n_kicks_attempted + 1,
                 team_1_score=team_1_score,
-                team_2_score=team_2_score
+                team_2_score=team_2_score,
+                single_kick_prob=SINGLE_KICK_PROB
             )
         
         return (
