@@ -132,7 +132,6 @@ class PKShootout:
     ) -> float:
         # if the shootout is over, the kicking team wins on a make and loses on a miss
         if shootout_over:
-            print('here 2')
             if self.kicking_team == team_kicking and kick_success:
                 return 1.0
             elif self.kicking_team == team_kicking and not kick_success:
@@ -270,6 +269,7 @@ class PKShootout:
         
     def reset_shootout(self):
         self.n_kicks_attempted = 0
+        self.shootout_is_over = False
         self.shootout_team_progress = {
             kt.team_1.value: {
                 'kicks_attempted': 0,
