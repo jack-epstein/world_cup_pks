@@ -1,54 +1,14 @@
 import json
-import kagglehub
-import numpy as np
 from os import path
 import pandas as pd
 
 from data import team
 
-# Download latest version
-PATH = kagglehub.dataset_download("luigibizarro/world-cup-penalty-shootouts-1982-2022")
-
 kt = team.KickingTeam
-
-
-def _make_games_dataframe(df: pd.DataFrame) -> pd.DataFrame:
-    games = set(df.Game_id)
-
-    res = []
-    for game in games:
-        res_dict = {'game': game}
-        temp = df[df.Game_id == game]
-        res_dict['n_kicks'] = len(temp)
-        # if the last kick is a goal, the team that kicked won
-        if temp.iloc[-1].Goal == 1:
-            res_dict['winning_team'] = temp.iloc[-1].team_order
-            res_dict['winning_country'] = temp.iloc[-1].Team
-            res_dict['losing_country'] = temp.iloc[-2].Team
-        else:
-            res_dict['winning_team'] = temp.iloc[-2].team_order
-            res_dict['winning_country'] = temp.iloc[-2].Team
-            res_dict['losing_country'] = temp.iloc[-1].Team
-        res.append(res_dict)
-    df_games = pd.DataFrame(res)
-    
-    df_games = df_games.merge(
-        df[df.Goal == 0].groupby('Game_id')['Penalty_Number'].min().reset_index(),
-        left_on='game', right_on='Game_id', how='inner', validate='1:1'
-    ).rename(columns={'Penalty_Number': 'first_missed_kick'})
-    return df_games
 
 
 class PKShootout:
     def __init__(self):
-        df_all = pd.read_csv(f"{PATH}/WorldCupShootouts.csv")
-        self.df_kicks = df_all[df_all.Goal.notna()].copy()
-        self.df_kicks["team_order"] = self.df_kicks.Penalty_Number.apply(
-            lambda x: kt.team_1.value if int(x) % 2 == 1 else kt.team_2.value
-        )
-        self.df_games = _make_games_dataframe(self.df_kicks)
-        del df_all
-
         self.n_kicks_attempted = 0
         self.shootout_is_over = False
         self.shootout_team_progress = {
@@ -94,7 +54,11 @@ class PKShootout:
         self.shootout_team_progress[self.kicking_team.value]['score'] += kick_success_int
         
         # first check if the shootout has been won
-        self.shootout_is_over = self.is_shootout_over()
+        self.shootout_is_over = self.is_shootout_over(
+            n_kicks_attempted=self.n_kicks_attempted,
+            team_1_score=self.shootout_team_progress[kt.team_1.value]['score'],
+            team_2_score=self.shootout_team_progress[kt.team_2.value]['score'],
+        )
         # then calculate the probablity for the team ahead
         kick_team_prob = self.calc_win_probability_after_kick(
             team_kicking=self.kicking_team,
@@ -132,29 +96,25 @@ class PKShootout:
         else:
             self.kicking_team = kt.team_1
 
-    def is_shootout_over(self) -> bool:
-        """Check if the team ahead has guaranteed a win."""
+    def is_shootout_over(
+        self, n_kicks_attempted: int, team_1_score: int, team_2_score: int,
+    ): #  -> tuple[bool, bool | None]
+        """Check if the team ahead has guaranteed a win.
+        
+        If true, also return whether the team that just kicked won"""
         # return false if the shootout is tied
-        if (
-            self.shootout_team_progress[kt.team_1.value]['score'] ==
-            self.shootout_team_progress[kt.team_2.value]['score']
-        ):
-            return False
+        if team_1_score == team_2_score:
+            return False, None
         
         # get the score difference and determine who is losing based on this difference
-        score_diff = (
-            self.shootout_team_progress[kt.team_1.value]['score'] -
-            self.shootout_team_progress[kt.team_2.value]['score']
-        )
+        score_diff = team_1_score - team_2_score
         score_diff_abs = abs(score_diff)
         leading_team = kt.team_1 if score_diff > 0 else kt.team_2
         trailing_team = kt.team_1 if score_diff < 0 else kt.team_2
 
         # if the trailing team doesn't have enough kicks left, the game is over
         if self.shootout_team_progress[trailing_team.value]['kicks_remaining'] < score_diff_abs:
-            # REMOVE THIS PART, WE CAN'T HAVE PRINT STATEMENTS
-            print(f"SHOOUTOUT IS OVER: {leading_team.value} WINS")
-            return True
+            return True, self.kicking_team == leading_team
 
         return False
 
@@ -219,19 +179,90 @@ class PKShootout:
         }
         self.kicking_team = kt.team_1
     
-    def simulate_win_probability(self, team_kicking: team.KickingTeam, kicks_remaining: int):
-        """If we don't have empirical data, we calculate the probability of winning assuming that
-        each kick has the same chance of going in"""
-
-        single_kick_prob = self.df_kicks['Goal'].mean()
+    # assume a 0.7 chance to make the kick
+    def simulate_win_probability(
+        self, n_kicks_attempted: int, team_1_score: int, team_2_score: int
+    ): # -> float
+        """TBD - need a detailed description"""
+        game_key = f"{n_kicks_attempted}_{team_1_score}_{team_2_score}"
+        sub_dict = self.game_probability_dict.get(game_key)
         
-        # we need to consider the current score, the number of kicks remaining
-        # if a team is up 4-3 going into the last kick, we should assume they have a
-            # ~70% chance to make the kick
-            # ~30% chance to save if not
-            # ~50% chance if it goes past 10
-            # this is an 89.5% chance of winning
-        # in general i think i want a binomial distribution calculator
-        # as a backup plan, i could shift to 50% and do a binomial but this biases against the 2nd team as theyre less likely to score
-        return single_kick_prob
+        # if we have a win probability, return use (only hit recursively)
+        base_win_prob = sub_dict.get('win_probability')
+        if pd.notna(base_win_prob):
+            return base_win_prob
+        
+        # check if the shootout is over and return the probability if it is
+        shootout_over, kicking_team_wins = self.is_shootout_over(
+            n_kicks_attempted=n_kicks_attempted,
+            team_1_score=team_1_score,
+            team_2_score=team_2_score
+        )
+        if shootout_over:
+            if kicking_team_wins:
+                return 1.0
+            else:
+                return 0.0
 
+        # get the next 2 game keys and their dictionaries
+        game_key_miss_next = f"{n_kicks_attempted+1}_{team_1_score}_{team_2_score}"
+        # can use the kicking team thing in the code base
+        if n_kicks_attempted % 2 == 1:
+            game_key_make_next = f"{n_kicks_attempted+1}_{team_1_score}_{team_2_score + 1}"
+        else:
+            game_key_make_next = f"{n_kicks_attempted+1}_{team_1_score + 1}_{team_2_score}"
+        sub_dict_make = self.game_probability_dict[game_key_make_next]
+        sub_dict_miss = self.game_probability_dict[game_key_miss_next]
+
+        # pull each of those probabilities
+        win_prob_make_next = sub_dict_make.get('win_probability')
+        win_prob_miss_next = sub_dict_miss.get('win_probability')
+
+        # if both probabilities exist, return a probability
+        if pd.notna(win_prob_make_next) and pd.notna(win_prob_miss_next):
+            return 0.7 * win_prob_make_next + (1-0.7) * win_prob_miss_next
+        # if we now have a probability on a make, search for probabilities on a miss
+        elif pd.notna(win_prob_make_next):
+            win_prob_miss_next = self.simulate_win_probability(
+                n_kicks_attempted=n_kicks_attempted + 1,
+                team_1_score=team_1_score,
+                team_2_score=team_2_score
+            )
+        
+        # if we now have a probability on a miss, search for probabilities on a make
+        elif pd.notna(win_prob_miss_next):
+            if n_kicks_attempted % 2 == 1:
+                win_prob_make_next = self.simulate_win_probability(
+                    n_kicks_attempted=n_kicks_attempted + 1,
+                    team_1_score=team_1_score,
+                    team_2_score=team_2_score + 1
+                )
+            else:
+                win_prob_make_next = self.simulate_win_probability(
+                    n_kicks_attempted=n_kicks_attempted + 1,
+                    team_1_score=team_1_score + 1,
+                    team_2_score=team_2_score
+                )
+        
+        # still need to search for both probabilities
+        else:
+            # need to do this for both
+            if n_kicks_attempted % 2 == 1:
+                win_prob_make_next = self.simulate_win_probability(
+                    n_kicks_attempted=n_kicks_attempted + 1,
+                    team_1_score=team_1_score,
+                    team_2_score=team_2_score + 1
+                )
+            else:
+                win_prob_make_next = self.simulate_win_probability(
+                    n_kicks_attempted=n_kicks_attempted + 1,
+                    team_1_score=team_1_score + 1,
+                    team_2_score=team_2_score
+                )
+            win_prob_miss_next = self.simulate_win_probability(
+                n_kicks_attempted=n_kicks_attempted + 1,
+                team_1_score=team_1_score,
+                team_2_score=team_2_score
+            )
+        
+        return 1 - (0.7 * win_prob_make_next + (1 - 0.7) * win_prob_miss_next)
