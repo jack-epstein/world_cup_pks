@@ -29,7 +29,10 @@ if st.button('Reset Count'):
 st.header(f"Team Kicking: {st.session_state.pk.kicking_team.value}")
 
 # Display the number of clicks
-st.write(f'Kick number {st.session_state.pk.n_kicks_attempted + 1}')
+if st.session_state.pk.n_kicks_attempted < 10:
+    st.write(f'Kick number {st.session_state.pk.n_kicks_attempted + 1}')
+else:
+    st.write(f'Kick number {st.session_state.pk.n_kicks_attempted}')
 
 team_1_score = str(
     st.session_state.pk.shootout_team_progress[kt.team_1.value]['score']
