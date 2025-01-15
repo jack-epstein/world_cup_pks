@@ -92,6 +92,7 @@ class PKShootout:
         self.switch_kicking_team()
 
     def switch_kicking_team(self):
+        """Change the kicking team status object to the other team."""
         if self.kicking_team == kt.team_1:
             self.kicking_team = kt.team_2
         else:
@@ -102,8 +103,7 @@ class PKShootout:
     ) -> tuple[bool, bool | None]:
         """Check if the team ahead has guaranteed a win.
         
-        If true, also return whether the team that just kicked won"""
-        # return false if the shootout is tied
+        If true, also return whether the team that just kicked has won"""
         if team_1_score == team_2_score:
             return False, None
         
@@ -113,7 +113,7 @@ class PKShootout:
         leading_team = kt.team_1 if score_diff > 0 else kt.team_2
         trailing_team = kt.team_1 if score_diff < 0 else kt.team_2
 
-        # if the trailing team doesn't have enough kicks left, the game is over
+        # calculate the number of kicks remaining for the trailing team
         if n_kicks_attempted % 2 == 0:
             trailing_team_shots_remaining = 5 - n_kicks_attempted / 2
         else:
@@ -130,6 +130,16 @@ class PKShootout:
     def calc_win_probability_after_kick(
         self, team_kicking: team.KickingTeam, kick_success: bool, shootout_over: bool = False
     ) -> float:
+        """After a team has kicked, check the score and calculate the probability they win
+        
+        Logic includes:
+        - If the shootout has been clinched, return 0 or 1 based on which team just kicked
+        - Look up the empirical probability of winning based on previous world cup shootouts
+        - If we are at a score that has never happened before, simulate makes and misses until we
+        reach a known probability
+        - If the looked up probability is over 0.95 or under 0.5, smooth this a bit so we don't
+        assume it's over when it's not
+        """
         # if the shootout is over, the kicking team wins on a make and loses on a miss
         if shootout_over:
             if self.kicking_team == team_kicking and kick_success:
@@ -174,7 +184,14 @@ class PKShootout:
         team_2_score: int,
         single_kick_prob: float
     ) -> float:
-        """TBD - need a detailed description"""
+        """Simulate kicks in the shootout until we can recalculate a probability.
+        
+        Logic goes as follows
+        1. Look up if the empirical probability exists
+        2. If not, find probabilities if the next kick were to be either a make or a miss
+        3. Recursively search until we either find a probability or hit an end score
+        4. Weight the odds of the kicks based on historical kick accuracy
+        """
         game_key = f"{n_kicks_attempted}_{team_1_score}_{team_2_score}"
         sub_dict = self.game_probability_dict.get(game_key)
         
@@ -197,7 +214,6 @@ class PKShootout:
 
         # get the next 2 game keys and their dictionaries
         game_key_miss_next = f"{n_kicks_attempted+1}_{team_1_score}_{team_2_score}"
-        # can use the kicking team thing in the code base
         if n_kicks_attempted % 2 == 1:
             game_key_make_next = f"{n_kicks_attempted+1}_{team_1_score}_{team_2_score + 1}"
         else:
@@ -213,7 +229,7 @@ class PKShootout:
         if pd.notna(win_prob_make_next) and pd.notna(win_prob_miss_next):
             return (single_kick_prob * win_prob_make_next +
                     (1 - single_kick_prob) * win_prob_miss_next)
-        # if we now have a probability on a make, search for probabilities on a miss
+        # if we now have a probability on a make, recursilvely search for probabilities on a miss
         elif pd.notna(win_prob_make_next):
             win_prob_miss_next = self.simulate_win_probability(
                 n_kicks_attempted=n_kicks_attempted + 1,
@@ -222,7 +238,7 @@ class PKShootout:
                 single_kick_prob=SINGLE_KICK_PROB
             )
         
-        # if we now have a probability on a miss, search for probabilities on a make
+        # if we now have a probability on a miss, recursilvely search for probabilities on a make
         elif pd.notna(win_prob_miss_next):
             if n_kicks_attempted % 2 == 1:
                 win_prob_make_next = self.simulate_win_probability(
@@ -262,12 +278,14 @@ class PKShootout:
                 single_kick_prob=SINGLE_KICK_PROB
             )
         
+        # return the inverse probability because we have assume the 'next' team is kicking
         return (
             1 - (single_kick_prob * win_prob_make_next +
                  (1 - single_kick_prob) * win_prob_miss_next)
             )
         
     def reset_shootout(self):
+        """Reset all the object values to zero or to their initial state."""
         self.n_kicks_attempted = 0
         self.shootout_is_over = False
         self.shootout_team_progress = {
