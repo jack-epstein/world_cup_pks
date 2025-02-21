@@ -269,10 +269,14 @@ class PKShootout:
                 )
 
         # return the inverse probability because we have assume the 'next' team is kicking
+        # return (
+        #     1 - (single_kick_prob * win_prob_make_next +
+        #          (1 - single_kick_prob) * win_prob_miss_next)
+        #     )
         return (
-            1 - (single_kick_prob * win_prob_make_next +
-                 (1 - single_kick_prob) * win_prob_miss_next)
-            )
+            single_kick_prob * win_prob_make_next +
+            (1 - single_kick_prob) * win_prob_miss_next
+        )
 
     def reset_shootout(self):
         """Reset all the object values to zero or to their initial state."""
