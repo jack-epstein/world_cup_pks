@@ -10,7 +10,7 @@ CLEAN_NAME_MAP = {
 }
 
 if 'pk' not in st.session_state:
-    st.session_state.pk = pk_shootout.PKShootout(probability_type='empirical')
+    st.session_state.pk = pk_shootout.PKShootout(probability_type='simulated')
 
 kt = team.KickingTeam
 
