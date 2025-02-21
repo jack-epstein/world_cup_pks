@@ -156,7 +156,11 @@ class PKShootout:
          # get each teams score after the result of the kick
         team_1_score = self.shootout_team_progress[kt.team_1.value]['score']
         team_2_score = self.shootout_team_progress[kt.team_2.value]['score']
-        
+
+        # set tie scores (after a round) to 50% regardless of empirical scores
+        if (team_1_score == team_2_score) and (self.n_kicks_attempted % 2 == 0):
+            return 0.5
+
         # pull the probability from the history of world cups
         empirical_win_probability = None
         dict_key = f"{self.n_kicks_attempted}_{team_1_score}_{team_2_score}"
