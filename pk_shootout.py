@@ -5,7 +5,7 @@ import pandas as pd
 from data import team
 
 kt = team.KickingTeam
-SINGLE_KICK_PROB = 0.7
+SINGLE_KICK_PROB = 0.690625  # based on historic data
 
 
 class PKShootout:
@@ -191,7 +191,7 @@ class PKShootout:
         single_kick_prob: float
     ) -> float:
         """Simulate kicks in the shootout until we can recalculate a probability.
-        
+
         Logic goes as follows
         1. Look up if the empirical probability exists
         2. If not, find probabilities if the next kick were to be either a make or a miss
@@ -200,12 +200,14 @@ class PKShootout:
         """
         game_key = f"{n_kicks_attempted}_{team_1_score}_{team_2_score}"
         sub_dict = self.game_probability_dict.get(game_key)
-        
-        # if we have a win probability, return this
-        base_win_prob = sub_dict.get('win_probability')
+
+        # if we have a win probability, return this (only if using empirical method)
+        base_win_prob = None
+        if self.probability_type == 'empirical':
+            base_win_prob = sub_dict.get('win_probability')
         if pd.notna(base_win_prob):
             return base_win_prob
-        
+
         # check if the shootout is over and return the probability if it is
         shootout_over, kicking_team_wins = self.is_shootout_over(
             n_kicks_attempted=n_kicks_attempted,
@@ -235,7 +237,7 @@ class PKShootout:
         if pd.notna(win_prob_make_next) and pd.notna(win_prob_miss_next):
             return (single_kick_prob * win_prob_make_next +
                     (1 - single_kick_prob) * win_prob_miss_next)
-        
+
         # if the probability on a miss doesn't exist, recursively get it
         if pd.isna(win_prob_miss_next):
             win_prob_miss_next = self.simulate_win_probability(
@@ -244,7 +246,7 @@ class PKShootout:
                 team_2_score=team_2_score,
                 single_kick_prob=SINGLE_KICK_PROB
             )
-        
+
         # if the probability on a make doesn't exist, recursively get it
         if pd.isna(win_prob_make_next):
             if n_kicks_attempted % 2 == 1:
@@ -267,7 +269,7 @@ class PKShootout:
             1 - (single_kick_prob * win_prob_make_next +
                  (1 - single_kick_prob) * win_prob_miss_next)
             )
-        
+
     def reset_shootout(self):
         """Reset all the object values to zero or to their initial state."""
         self.n_kicks_attempted = 0
