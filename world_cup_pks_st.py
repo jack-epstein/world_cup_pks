@@ -4,6 +4,11 @@ import pandas as pd
 from data import team
 import pk_shootout
 
+CLEAN_NAME_MAP = {
+    'team_1': 'Team 1',
+    'team_2': 'Team 2',
+}
+
 if 'pk' not in st.session_state:
     st.session_state.pk = pk_shootout.PKShootout()
 
@@ -32,7 +37,9 @@ if st.button('Reset Count', icon=':material/restart_alt:', type='tertiary'):
     st.session_state.pk.reset_shootout()
 
 
-st.markdown(f"### Team Kicking: {st.session_state.pk.kicking_team.value}")
+st.markdown(
+    f"### Team Kicking: {CLEAN_NAME_MAP[st.session_state.pk.kicking_team.value]}"
+)
 
 # Display the number of clicks
 if st.session_state.pk.n_kicks_attempted < 10:
