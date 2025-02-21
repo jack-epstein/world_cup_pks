@@ -29,7 +29,7 @@ with col2:
         st.session_state.pk.kick(kick_success=False)
 
 # Button to reset the count
-if st.button('Reset Count', type='tertiary'):
+if st.button('Reset Count', icon=':material/restart_alt:', type='tertiary'):
     st.session_state.pk.reset_shootout()
 
 
