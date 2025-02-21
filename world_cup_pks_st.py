@@ -33,7 +33,7 @@ if st.button('Reset Count'):
     st.session_state.pk.reset_shootout()
 
 
-st.header(f"Team Kicking: {st.session_state.pk.kicking_team.value}")
+st.markdown(f"### Team Kicking: {st.session_state.pk.kicking_team.value}")
 
 # Display the number of clicks
 if st.session_state.pk.n_kicks_attempted < 10:
@@ -57,13 +57,13 @@ if st.session_state.pk.shootout_is_over:
 col1, col2 = st.columns(2)
 with col1:
     team_1_dict = st.session_state.pk.shootout_team_progress[kt.team_1.value]
-    st.subheader("TEAM 1")
+    st.markdown("#### TEAM 1")
     st.write(f"Shot attempts: {team_1_dict['kicks_attempted']}")
     st.write(f"Goals: {team_1_dict['score']}")
     st.write(f"Win probability: {team_1_dict['probability']:.2%}")
 with col2:
     team_2_dict = st.session_state.pk.shootout_team_progress[kt.team_2.value]
-    st.subheader("TEAM 2")
+    st.markdown("#### TEAM 2")
     st.write(f"Shot attempts: {team_2_dict['kicks_attempted']}")
     st.write(f"Goals: {team_2_dict['score']}")
     st.write(f"Win probability: {team_2_dict['probability']:.2%}")
