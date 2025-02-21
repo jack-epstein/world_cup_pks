@@ -21,15 +21,15 @@ st.markdown("#### Play Here")
 # Button to track clicks
 col1, col2 = st.columns(2)
 with col1:
-    if st.button('KICK - Make'):
+    if st.button('KICK - :white_check_mark:'):
         st.session_state.pk.kick(kick_success=True)
 
 with col2:
-    if st.button('KICK - Miss'):
+    if st.button('KICK - ❌'):
         st.session_state.pk.kick(kick_success=False)
 
 # Button to reset the count
-if st.button('Reset Count'):
+if st.button('Reset Count', type='tertiary'):
     st.session_state.pk.reset_shootout()
 
 
