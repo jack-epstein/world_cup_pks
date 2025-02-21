@@ -162,13 +162,9 @@ class PKShootout:
             return 0.5
 
         # pull the probability from the history of world cups
-        empirical_win_probability = None
         dict_key = f"{self.n_kicks_attempted}_{team_1_score}_{team_2_score}"
         sub_dict = self.game_probability_dict[dict_key]
-        
-        # only pull empirical probability if that's the type we use
-        if self.probability_type == 'empirical':
-            empirical_win_probability = sub_dict.get('win_probability')
+        empirical_win_probability = sub_dict.get('win_probability')
 
         # if we don't have an empirical probability, simluate kicks until we get to one
         if pd.isna(empirical_win_probability):
@@ -234,11 +230,8 @@ class PKShootout:
         sub_dict_miss = self.game_probability_dict[game_key_miss_next]
 
         # pull each of those probabilities
-        win_prob_make_next = None
-        win_prob_miss_next = None
-        if self.probability_type == "empirical":
-            win_prob_make_next = sub_dict_make.get('win_probability')
-            win_prob_miss_next = sub_dict_miss.get('win_probability')
+        win_prob_make_next = sub_dict_make.get('win_probability')
+        win_prob_miss_next = sub_dict_miss.get('win_probability')
 
         # if both probabilities exist, return a probability
         if pd.notna(win_prob_make_next) and pd.notna(win_prob_miss_next):
