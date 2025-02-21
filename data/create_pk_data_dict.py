@@ -4,9 +4,6 @@ import pandas as pd
 
 import team
 
-# TO DO
-# FUNCTION TO CHECK IMPOSSIBLE SCORES
-
 # Download latest version
 PATH = kagglehub.dataset_download("luigibizarro/world-cup-penalty-shootouts-1982-2022")
 
