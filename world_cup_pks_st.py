@@ -11,10 +11,9 @@ kt = team.KickingTeam
 
 st.markdown("# :soccer: Welcome to the World Cup PK simluator! :soccer:")
 st.markdown(
-    "### Have you ever been watching a PK shootout and wondered 'What are each teams chances of "
-    "winning?' Well no need to wonder any longer."
+    "#### Have you ever been watching a PK shootout and wondered 'What are each teams chances of "
+    "winning?' Well no need to wonder any longer. Further details below"
 )
-st.write("Further details below")
 
 st.markdown("#### Play Here")
 
