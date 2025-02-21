@@ -134,10 +134,10 @@ class PKShootout:
         
         Logic includes:
         - If the shootout has been clinched, return 0 or 1 based on which team just kicked
-        - Look up the empirical probability of winning based on previous world cup shootouts
+        - Look up the empirical probability of w dinning based on previous world cup shootouts
         - If we are at a score that has never happened before, simulate makes and misses until we
         reach a known probability
-        - If the looked up probability is over 0.95 or under 0.5, smooth this a bit so we don't
+        - If the looked up probability is over 0.95 or under 0.05, smooth this a bit so we don't
         assume it's over when it's not
         """
         # if the shootout is over, the kicking team wins on a make and loses on a miss
@@ -195,7 +195,7 @@ class PKShootout:
         game_key = f"{n_kicks_attempted}_{team_1_score}_{team_2_score}"
         sub_dict = self.game_probability_dict.get(game_key)
         
-        # if we have a win probability, return use (only hit recursively)
+        # if we have a win probability, return this
         base_win_prob = sub_dict.get('win_probability')
         if pd.notna(base_win_prob):
             return base_win_prob
@@ -229,8 +229,9 @@ class PKShootout:
         if pd.notna(win_prob_make_next) and pd.notna(win_prob_miss_next):
             return (single_kick_prob * win_prob_make_next +
                     (1 - single_kick_prob) * win_prob_miss_next)
-        # if we now have a probability on a make, recursilvely search for probabilities on a miss
-        elif pd.notna(win_prob_make_next):
+        
+        # if the probability on a miss doesn't exist, recursively get it
+        if pd.isna(win_prob_miss_next):
             win_prob_miss_next = self.simulate_win_probability(
                 n_kicks_attempted=n_kicks_attempted + 1,
                 team_1_score=team_1_score,
@@ -238,8 +239,8 @@ class PKShootout:
                 single_kick_prob=SINGLE_KICK_PROB
             )
         
-        # if we now have a probability on a miss, recursilvely search for probabilities on a make
-        elif pd.notna(win_prob_miss_next):
+        # if the probability on a make doesn't exist, recursively get it
+        if pd.isna(win_prob_make_next):
             if n_kicks_attempted % 2 == 1:
                 win_prob_make_next = self.simulate_win_probability(
                     n_kicks_attempted=n_kicks_attempted + 1,
@@ -255,29 +256,6 @@ class PKShootout:
                     single_kick_prob=SINGLE_KICK_PROB
                 )
 
-        # if neither probability exists, need to search recursively for both
-        else:
-            if n_kicks_attempted % 2 == 1:
-                win_prob_make_next = self.simulate_win_probability(
-                    n_kicks_attempted=n_kicks_attempted + 1,
-                    team_1_score=team_1_score,
-                    team_2_score=team_2_score + 1,
-                    single_kick_prob=SINGLE_KICK_PROB
-                )
-            else:
-                win_prob_make_next = self.simulate_win_probability(
-                    n_kicks_attempted=n_kicks_attempted + 1,
-                    team_1_score=team_1_score + 1,
-                    team_2_score=team_2_score,
-                    single_kick_prob=SINGLE_KICK_PROB
-                )
-            win_prob_miss_next = self.simulate_win_probability(
-                n_kicks_attempted=n_kicks_attempted + 1,
-                team_1_score=team_1_score,
-                team_2_score=team_2_score,
-                single_kick_prob=SINGLE_KICK_PROB
-            )
-        
         # return the inverse probability because we have assume the 'next' team is kicking
         return (
             1 - (single_kick_prob * win_prob_make_next +
