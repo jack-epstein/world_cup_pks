@@ -9,7 +9,9 @@ SINGLE_KICK_PROB = 0.7
 
 
 class PKShootout:
-    def __init__(self):
+    def __init__(self, probability_type: str = 'empirical'):
+        assert probability_type in ['empirical', 'simulated']
+        self.probability_type = probability_type
         self.n_kicks_attempted = 0
         self.shootout_is_over = False
         self.shootout_team_progress = {
@@ -156,9 +158,13 @@ class PKShootout:
         team_2_score = self.shootout_team_progress[kt.team_2.value]['score']
         
         # pull the probability from the history of world cups
+        empirical_win_probability = None
         dict_key = f"{self.n_kicks_attempted}_{team_1_score}_{team_2_score}"
         sub_dict = self.game_probability_dict[dict_key]
-        empirical_win_probability = sub_dict.get('win_probability')
+        
+        # only pull empirical probability if that's the type we use
+        if self.probability_type == 'empirical':
+            empirical_win_probability = sub_dict.get('win_probability')
 
         # if we don't have an empirical probability, simluate kicks until we get to one
         if pd.isna(empirical_win_probability):
