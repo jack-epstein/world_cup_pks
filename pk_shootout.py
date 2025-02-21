@@ -234,8 +234,11 @@ class PKShootout:
         sub_dict_miss = self.game_probability_dict[game_key_miss_next]
 
         # pull each of those probabilities
-        win_prob_make_next = sub_dict_make.get('win_probability')
-        win_prob_miss_next = sub_dict_miss.get('win_probability')
+        win_prob_make_next = None
+        win_prob_miss_next = None
+        if self.probability_type == "empirical":
+            win_prob_make_next = sub_dict_make.get('win_probability')
+            win_prob_miss_next = sub_dict_miss.get('win_probability')
 
         # if both probabilities exist, return a probability
         if pd.notna(win_prob_make_next) and pd.notna(win_prob_miss_next):
@@ -269,14 +272,12 @@ class PKShootout:
                 )
 
         # return the inverse probability because we have assume the 'next' team is kicking
-        # return (
-        #     1 - (single_kick_prob * win_prob_make_next +
-        #          (1 - single_kick_prob) * win_prob_miss_next)
-        #     )
         return (
-            single_kick_prob * win_prob_make_next +
-            (1 - single_kick_prob) * win_prob_miss_next
-        )
+            1 - (
+                single_kick_prob * win_prob_make_next +
+                (1 - single_kick_prob) * win_prob_miss_next
+                )
+            )
 
     def reset_shootout(self):
         """Reset all the object values to zero or to their initial state."""
