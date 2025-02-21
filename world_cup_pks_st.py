@@ -9,12 +9,14 @@ if 'pk' not in st.session_state:
 
 kt = team.KickingTeam
 
-st.title("Welcome to the World Cup PK simluator!")
-st.subheader(
-    "Have you ever been watching a PK shootout and wondered 'What are each teams chances of "
+st.markdown("# :soccer: Welcome to the World Cup PK simluator! :soccer:")
+st.markdown(
+    "### Have you ever been watching a PK shootout and wondered 'What are each teams chances of "
     "winning?' Well no need to wonder any longer."
 )
 st.write("Further details below")
+
+st.markdown("#### Play Here")
 
 # Button to track clicks
 col1, col2 = st.columns(2)
